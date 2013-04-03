@@ -149,7 +149,7 @@ function do_git_update() {
         git pull origin ${git_branch}
         popd
     else
-        git clone https://github.com/rcbops/${repo} -b ${git_branch}
+        git clone https://github.com/${git_user}/${repo} -b ${git_branch}
     fi
 
     # Apply patch if one was specified - useful for testing a pull request
@@ -360,16 +360,20 @@ OPTIONS:
   -V --version  Display script version
 
 ARGUMENTS:
-  -r --role=[server | agent | dashboard]
+  -r= --role=[server | agent | dashboard]
          Specify the role of the node - defaults to "agent"
-  -i --ip=<Opencenter Server IP>
+  -i= --ip=<Opencenter Server IP>
          Specify the Opencenter Server IP - defaults to "0.0.0.0"
   -rr --rerun
          Rerun the script without having to create a new server
          Can be used to adjust IP information
-  --server-patch-url
-  --agent-patch-url
-  --client-patch-url
+  -gb= --git-branch=<Git Branch>
+         Specify the git branch to use, defaults to "sprint"
+  -gu= --git-user=<Git User>
+         Specify the git user to use, defaults to "rcbops"
+  --server-patch-url=<URL>
+  --agent-patch-url=<URL>
+  --client-patch-url=<URL>
          Retrieve and apply a patch to the project specified after cloning.
          This can be useful for testing a proposed change.
 EOF
@@ -440,6 +444,7 @@ SERVER_PORT="8080"
 VERSION=1.0.0
 VERBOSE=
 git_branch=sprint
+git_user=rcbops
 ####################
 
 ####################
@@ -497,6 +502,16 @@ for arg in $@; do
             ;;
         "--rerun" | "-rr")
             RERUN=true
+            ;;
+        "--git-branch" | "-gb")
+            if [ "$value" != "--git-branch" ] && [ "$value" != "-gb" ]; then
+                git_branch=$value
+            fi
+            ;;
+        "--git-user" | "-gu")
+            if [ "$value" != "--git-user" ] && [ "$value" != "-gu" ]; then
+                git_user=$value
+            fi
             ;;
         "--help" | "-h")
             usage
