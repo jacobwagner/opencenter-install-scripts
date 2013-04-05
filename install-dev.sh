@@ -103,7 +103,7 @@ function install_apt_repo() {
 
   if [ -e ${apt_file_path} ];
   then
-    if ! ( grep "deb ${uri}/${apt_pkg_path} ${platform_name} ${apt_repo}" $apt_file_path ); then
+    if ! ( grep "deb ${uri}/${apt_pkg_path} ${platform_name} ${apt_repo}" $apt_file_path > /dev/null 2>&1 ); then
         echo "deb ${uri}/${apt_pkg_path} ${platform_name} ${apt_repo}" > $apt_file_path
     fi
   else
@@ -111,14 +111,15 @@ function install_apt_repo() {
   fi
 
   if [[ -z $VERBOSE ]]; then
-    ${aptkey} adv --keyserver ${keyserver} --recv-keys ${apt_key} >/dev/null 2>&1
+      if ! ( ${aptkey} adv --keyserver ${keyserver} --recv-keys ${apt_key} >/dev/null 2>&1 ); then
+          echo "Unable to add apt-key"
+          exit 1
+      fi
   else
-    ${aptkey} adv --keyserver ${keyserver} --recv-keys ${apt_key}
-  fi
-
-  if [[ $? -ne 0 ]]; then
-    echo "Unable to add apt-key."
-    exit 1
+      if ! ( ${aptkey} adv --keyserver ${keyserver} --recv-keys ${apt_key} ); then
+          echo "Unable to add apt-key"
+          exit 1
+      fi
   fi
 }
 
@@ -143,14 +144,17 @@ function setup_aliases() {
 function do_git_update() {
     # $1 = repo name
     repo=$1
-    if [ -d ${repo} ]; then
-        pushd ${repo}
-        git checkout ${git_branch}
-        git pull origin ${git_branch}
-        popd
-    else
-        git clone https://github.com/${git_user}/${repo} -b ${git_branch}
+    if ! [ -d ${repo} ]; then
+        git clone https://github.com/${git_user}/${repo}
     fi
+    pushd ${repo}
+    if ! ( git checkout ${git_branch} ); then
+        echo "No branch ${git_branch} for ${repo} defaulting to sprint"
+        git_branch=sprint
+    fi
+    git checkout ${git_branch}
+    git pull origin ${git_branch}
+    popd
 
     # Apply patch if one was specified - useful for testing a pull request
     pushd $repo
@@ -170,15 +174,20 @@ function do_git_remove() {
     repo=$1
     if [ -d ${repo} ]; then
         pushd ${repo}
-        git reset --hard origin/sprint
+        current_branch=$(git branch | grep "*" | awk '{print $2}')
+        git reset --hard origin/${current_branch}
         popd
     fi
 }
 
+function kill_opencenter() {
+    ps -ef | grep "SCREEN -S opencenter" | grep -v grep | awk '{print $2}' | xargs -i kill {}
+}
 
 function git_setup() {
   if [ "${ROLE}" != "dashboard" ]; then
       if ( $RERUN ); then
+         kill_opencenter
          do_git_remove opencenter
          do_git_remove opencenter-agent
          do_git_remove opencenter-client
